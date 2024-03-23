@@ -7,13 +7,18 @@
 package zad1;
 
 
+import com.github.cliftonlabs.json_simple.JsonException;
+
+import java.io.IOException;
+
 public class Main {
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException, JsonException {
     Service s = new Service("Poland");
     String weatherJson = s.getWeather("Warsaw");
-    Double rate1 = s.getRateFor("USD");
-    Double rate2 = s.getNBPRate();
+//    Double rate1 = s.getRateFor("USD");
+//    Double rate2 = s.getNBPRate();
     // ...
     // część uruchamiająca GUI
   }
 }
+
