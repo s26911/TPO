@@ -23,6 +23,11 @@ public class Service {
         this.country = country;
     }
 
+    public String getCountry() {
+        return country;
+    }
+
+    // returns raw json data from openweathermap for provided country and city
     String getWeather(String city) {
         String countryISOCode = Util.getCountryISOCode(country);
         URL url = null;
@@ -37,6 +42,7 @@ public class Service {
         return Util.readJsonFromURL(url);
     }
 
+    // returns rate of currency of country for this service instance in currency with code provided as an arg
     public Double getRateFor(String currencyCode) {
         Currency curr1 = Currency.getInstance(Util.getLocaleForCountry(country));
         Currency curr2;
@@ -61,6 +67,7 @@ public class Service {
         return decimal.doubleValue();
     }
 
+    // returns rate of currency of country for this service instance in PLN according to NBP data
     Double getNBPRate() {
         Currency curr = Currency.getInstance(Util.getLocaleForCountry(country));
         if (curr.getCurrencyCode().equals("PLN"))
@@ -82,7 +89,7 @@ public class Service {
             for (int i = 0; i < rates.size(); i++) {
                 JsonObject j = (JsonObject) rates.get(i);
                 if (j.get("code").toString().equals(curr.getCurrencyCode()))
-                    return ((BigDecimal) j.get("mid")).doubleValue();
+                    return 1 / ((BigDecimal) j.get("mid")).doubleValue();
             }
         }
 

@@ -5,6 +5,7 @@
 package zad1;
 
 import com.github.cliftonlabs.json_simple.JsonException;
+
 import java.io.IOException;
 
 public class Main {
