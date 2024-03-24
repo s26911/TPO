@@ -4,16 +4,10 @@
 
 package zad1;
 
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Currency;
-import java.util.Locale;
-import java.util.Objects;
 
 import com.github.cliftonlabs.json_simple.*;
 
@@ -29,58 +23,66 @@ public class Service {
         this.country = country;
     }
 
-    String getWeather(String city) throws IOException, JsonException {
+    String getWeather(String city) {
         String countryISOCode = Util.getCountryISOCode(country);
-        URL url = new URL(WEATHER_URL.replace("{city name}", city)
-                .replace("{country name}", country)
-                .replace("{API key}", WEATHER_API_KEY));
+        URL url = null;
+        try {
+            url = new URL(WEATHER_URL.replace("{city name}", city)
+                    .replace("{country name}", country)
+                    .replace("{API key}", WEATHER_API_KEY));
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
 
         return Util.readJsonFromURL(url);
     }
 
-    public Double getRateFor(String currencyCode) throws IOException, JsonException {
+    public Double getRateFor(String currencyCode) {
         Currency curr1 = Currency.getInstance(Util.getLocaleForCountry(country));
-        Currency curr2 = Currency.getInstance(currencyCode);
+        Currency curr2;
+        try {
+            curr2 = Currency.getInstance(currencyCode.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid currency code!");
+        }
 
-        URL url = new URL(CURRENCY_URL.replace("{API key}", CURRENCY_API_KEY)
-                .replace("{currency code}", curr1.getCurrencyCode()));
-        String jsonData = Util.readJsonFromURL(url);
+        JsonObject jsonObject = null;
+        try {
+            URL url = new URL(CURRENCY_URL.replace("{API key}", CURRENCY_API_KEY)
+                    .replace("{currency code}", curr1.getCurrencyCode()));
+            String jsonData = Util.readJsonFromURL(url);
 
-        JsonObject jsonObject = (JsonObject) Jsoner.deserialize(jsonData);
+            jsonObject = (JsonObject) Jsoner.deserialize(jsonData);
+        } catch (MalformedURLException | JsonException e) {
+            throw new RuntimeException(e);
+        }
+
         BigDecimal decimal = (BigDecimal) ((JsonObject) jsonObject.get("conversion_rates")).get(curr2.getCurrencyCode());
         return decimal.doubleValue();
-
     }
 
-    Double getNBPRate() throws IOException, JsonException {
+    Double getNBPRate() {
         Currency curr = Currency.getInstance(Util.getLocaleForCountry(country));
         if (curr.getCurrencyCode().equals("PLN"))
             return 1.;
 
-        {   // for table A
-            URL url = new URL(NBP_URL.replace("{table}", "A"));
-            String jsonData = Util.readJsonFromURL(url);
+        for (String table : new String[]{"A", "B"}) {
+            JsonArray rates = null;
+            try {
+                URL url = new URL(NBP_URL.replace("{table}", table));
+                String jsonData = Util.readJsonFromURL(url);
 
-            JsonObject jsonObject = (JsonObject) ((JsonArray) Jsoner.deserialize(jsonData)).get(0);
-            JsonArray rates = (JsonArray) jsonObject.get("rates");
-
-            for (int i = 0; i < rates.size(); i++) {
-                JsonObject j = (JsonObject) rates.get(i);
-                if (j.get("code").toString().equals(curr.getCurrencyCode()))
-                    return ((BigDecimal) ((JsonObject) j).get("mid")).doubleValue();
+                JsonObject jsonObject = (JsonObject) ((JsonArray) Jsoner.deserialize(jsonData)).get(0);
+                rates = (JsonArray) jsonObject.get("rates");
+            } catch (MalformedURLException | JsonException e) {
+                throw new RuntimeException(e);
             }
-        }
-        {   // for table B
-            URL url = new URL(NBP_URL.replace("{table}", "B"));
-            String jsonData = Util.readJsonFromURL(url);
 
-            JsonObject jsonObject = (JsonObject) ((JsonArray) Jsoner.deserialize(jsonData)).get(0);
-            JsonArray rates = (JsonArray) jsonObject.get("rates");
 
             for (int i = 0; i < rates.size(); i++) {
                 JsonObject j = (JsonObject) rates.get(i);
                 if (j.get("code").toString().equals(curr.getCurrencyCode()))
-                    return ((BigDecimal) ((JsonObject) j).get("mid")).doubleValue();
+                    return ((BigDecimal) j.get("mid")).doubleValue();
             }
         }
 
