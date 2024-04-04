@@ -6,26 +6,26 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class MainServer extends Thread {
-    int port;
+    int listeningPort;
     boolean isRunning = true;
-    HashMap<String, Object[]> dictServers;
+    HashMap<String, String[]> dictServers;          // { langCode, { address, port } }
 
-    public MainServer(int port) {
-        this.port = port;
+    public MainServer(int listeningPort) {
+        this.listeningPort = listeningPort;
         dictServers = new HashMap<>();
     }
 
     @Override
     public void run() {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+        try (ServerSocket serverSocket = new ServerSocket(listeningPort)) {
             while (isRunning) {
-                System.out.println("MAIN SERV WAITING...");                     //
+                // maybe add timeout
                 Socket socket = serverSocket.accept();
-                System.out.println("MAIN SERVER ACCEPTED: " + socket.toString()); //
-                new MainServerTask(socket, this).start();
+                this.new MainServerTask(socket).start();
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -33,46 +33,59 @@ public class MainServer extends Thread {
     }
 
     public void addDict(String langCode, String address, int port) {
-        dictServers.put(langCode, new Object[]{address, port});
+        dictServers.put(langCode, new String[]{address, Integer.toString(port)});
     }
 
-}
 
-class MainServerTask extends Thread {
-    Socket socket;
-    MainServer mainServer;
+    private class MainServerTask extends Thread {
+        Socket socket;
 
-    public MainServerTask(Socket socket, MainServer mainServer) {
-        this.socket = socket;
-        this.mainServer = mainServer;
-    }
+        public MainServerTask(Socket socket) {
+            this.socket = socket;
+        }
 
-    @Override
-    public void run() {
-        try {
-            System.out.println("NEW TASK");                     //
-            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String line = reader.readLine();
-            System.out.println("LINE: " + line);
-            if (line.startsWith("INCOMING DICT"))
-                mainServer.addDict(line.split(" ")[2], socket.getInetAddress().getHostAddress(), Integer.parseInt(line.split(" ")[3]));
-            else {
-                String[] data = line.split(" ");
-                if (!mainServer.dictServers.containsKey(data[1]))
-                    System.out.println("BRAK SLOWNIKA O DANYM KODZIE");
+        @Override
+        public void run() {
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                String line = reader.readLine();
+                String[] split = line.split(" ");
+//            System.out.println("LINE: " + line);
+                // DICTIONARY SERVER REQUEST TO CONNECT: INCOMING DICT {langCode} {listeningPort}
+                if (line.startsWith("INCOMING DICT"))
+                    addDict(split[2], socket.getInetAddress().getHostAddress(), Integer.parseInt(split[3]));
+                    // CLIENT TRANSLATION REQUEST: {wordToTranslate} {langCode} {clientsListeningPort}
+                else if (line.startsWith("LIST")){
+                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                    out.println(dictServers.keySet().stream().reduce("", (a, b) -> b + " " + a));
+                }
                 else {
-                    Object[] addr = mainServer.dictServers.get(data[1]);
-                    System.out.println("TRY TO CONNECT TO DICT ON: " + addr[0].toString() + " " + addr[1].toString());
-                    Socket dict = new Socket((String) addr[0], (int) addr[1]);
-                    new PrintWriter(dict.getOutputStream(), true).println(data[0] + " " +
-                            socket.getInetAddress() + " " + line.split(" ")[2]);
-                    dict.close();
+                    if (!dictServers.containsKey(split[1]))
+                        System.out.println("BRAK SLOWNIKA O DANYM KODZIE");
+                    else {
+                        String[] addrAndPort = dictServers.get(split[1]);
+//                        System.out.println("TRY TO CONNECT TO DICT ON: " + addrAndPort[0] + " " + addrAndPort[1]);
+                        Socket dict = new Socket(addrAndPort[0], Integer.parseInt(addrAndPort[1]));
+
+                        // THIS TASKS REQUEST TO DICT SERVER: {wordToTranslate} {clientsIPAddr} {clientsListeningPort}
+                        new PrintWriter(dict.getOutputStream(), true).println(split[0] + " " +
+                                socket.getInetAddress().getHostAddress() + " " + split[2]);
+                        dict.close();
+                    }
+                }
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
             }
-
-            socket.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }
+
