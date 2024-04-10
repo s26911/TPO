@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 public class Client {
 
@@ -25,13 +26,15 @@ public class Client {
             new PrintWriter(socket.getOutputStream(), true).println(word + " " + langCode + " " + listeningPort);
             socket.close();
 
-//            System.out.println("CLIENT WAITING ON: " + serverSocket);
+            serverSocket.setSoTimeout(5000);
             Socket incoming = serverSocket.accept();
-//            System.out.println("CLIENT ACCEPTED CONN FROM: " + incoming);
             BufferedReader reader = new BufferedReader(new InputStreamReader(incoming.getInputStream()));
             return reader.readLine();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        }catch (SocketTimeoutException e){
+            return "TIMEOUT";
+        }
+        catch (IOException e) {
+            return "CONNECTION TO THE MAIN SERVER FAILED";
         }
     }
 
@@ -41,7 +44,7 @@ public class Client {
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             return reader.readLine().trim().split(" ");
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            return new String[0];
         }
     }
 }
