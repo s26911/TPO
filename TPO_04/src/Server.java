@@ -9,6 +9,11 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Server {
     // TO IMPLEMENT
@@ -18,6 +23,9 @@ public class Server {
     boolean isRunning = true;
     HashMap<String, ArrayList<SocketChannel>> topicsClients = new HashMap<>();      // key = topic name
     ByteBuffer buffer = ByteBuffer.allocate(1024);                          // value = list of subscribed clients channels
+    ExecutorService threadPool = Executors.newCachedThreadPool();
+    ReadWriteLock lock = new ReentrantReadWriteLock();
+    Lock readLock = lock.readLock(), writeLock = lock.writeLock();
 
     ServerSocketChannel serverSocketChannel;
     Selector selector;
@@ -59,14 +67,12 @@ public class Server {
                 } else if (key.isReadable()) {
                     SocketChannel incoming = (SocketChannel) key.channel();
                     handleRequest(incoming);
-                } else if (key.isWritable()) {
-                    // TODO?
                 }
             }
         }
     }
 
-    private String readLine (SocketChannel incoming) throws IOException {
+    private String readLine(SocketChannel incoming) throws IOException {
         buffer.clear();
 
         StringBuilder line = new StringBuilder();
@@ -89,6 +95,50 @@ public class Server {
     }
 
     private void handleRequest(SocketChannel incoming) throws IOException {
+        String[] line = readLine(incoming).split(" ");
+        switch (line[0]) {
+            case "SUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);       // SUBSCRIBE TOPIC_NAME
+            case "UNSUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);     // UNSUBSCRIBE TOPIC_NAME
+            case "ADDTOPIC" -> addDelTopic(incoming, line[1], line[0]);                 // ADDTOPIC TOPIC_NAME
+            case "DELTOPIC" -> addDelTopic(incoming, line[1], line[0]);        // DELTOOPIC TOPIC_NAME
+            case "INFO" -> {}           // INFO TOPIC_NAME TEXT...
+                // TODO
+            case "SEND" -> {}            // SEND TOPIC_NAME TEXT...
+                // TODO
+        }
+    }
 
+    private void addDelTopic(SocketChannel incoming, String topicName, String mode) throws IOException {
+        writeLock.lock();
+        var prevVal = switch (mode) {
+            case "ADDTOPIC" -> topicsClients.putIfAbsent(topicName.toLowerCase(), new ArrayList<>());
+            case "DELTOPIC" -> topicsClients.remove(topicName.toLowerCase());
+            default -> null;
+        };
+        writeLock.unlock();
+
+        String op = mode.equals("ADDTOPIC") ? "added" : "deleted";
+        String errMess = mode.equals("ADDTOPIC") ? "already exists" : "didn't exist";
+        if (prevVal != null)
+            incoming.write(ByteBuffer.wrap(String.format("Successfully %s topic %s", op, topicName).getBytes()));
+        else
+            incoming.write(ByteBuffer.wrap(String.format("Topic %s %s and therefore wasn't %s",topicName, errMess, op).getBytes()));
+    }
+
+    private void subUnsub(SocketChannel incoming, String topicName, String mode) throws IOException {
+        writeLock.lock();
+        var list = topicsClients.get(topicName.toLowerCase());
+        if (list != null) {
+            switch (mode) {
+                case "SUBSCRIBE" -> list.remove(incoming);
+                case "UNSUBSCRIBE" -> list.add(incoming);
+            }
+        }
+        writeLock.unlock();
+
+        if (list == null) {
+            incoming.write(ByteBuffer.wrap("NONEXISTENT TOPIC".getBytes()));
+        } else
+            incoming.write(ByteBuffer.wrap(String.format("Successfully %sd to/from %s", mode, topicName).getBytes()));
     }
 }
