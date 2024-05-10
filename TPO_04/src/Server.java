@@ -35,6 +35,7 @@ public class Server {
     public Server(String address, int port) {
         this.address = address;
         this.port = port;
+//        topicsClients.put("info", new ArrayList<>());
 
         try {
             serverSocketChannel = ServerSocketChannel.open();
@@ -95,17 +96,30 @@ public class Server {
     }
 
     private void handleRequest(SocketChannel incoming) throws IOException {
-        String[] line = readLine(incoming).split(" ");
+        String input = readLine(incoming);
+        String[] line = input.split(" ");
         switch (line[0]) {
             case "SUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);       // SUBSCRIBE TOPIC_NAME
             case "UNSUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);     // UNSUBSCRIBE TOPIC_NAME
-            case "ADDTOPIC" -> addDelTopic(incoming, line[1], line[0]);                 // ADDTOPIC TOPIC_NAME
-            case "DELTOPIC" -> addDelTopic(incoming, line[1], line[0]);        // DELTOOPIC TOPIC_NAME
-            case "INFO" -> {}           // INFO TOPIC_NAME TEXT...
-                // TODO
-            case "SEND" -> {}            // SEND TOPIC_NAME TEXT...
-                // TODO
+            case "ADDTOPIC" -> addDelTopic(incoming, line[1], line[0]);     // ADDTOPIC TOPIC_NAME
+            case "DELTOPIC" -> addDelTopic(incoming, line[1], line[0]);     // DELTOOPIC TOPIC_NAME
+            case "SEND" -> sendText(line[1], input.substring(("SEND " + line[1]).length()) );   // SEND TOPIC_NAME TEXT...
         }
+    }
+
+    private void sendText(String topicName, String text) throws IOException {
+        threadPool.submit(()->{
+            readLock.lock();
+            var list = topicsClients.get(topicName);
+            for (var client : list) {
+                try {
+                    client.write(ByteBuffer.wrap(text.getBytes()));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            readLock.unlock();
+        });
     }
 
     private void addDelTopic(SocketChannel incoming, String topicName, String mode) throws IOException {
