@@ -43,6 +43,31 @@ public class Server{
     }
 
     private void handleConnections() throws IOException {
+        while(isRunning){
+            selector.select();
+            var keys = selector.selectedKeys();
+            var iter = keys.iterator();
+            while (iter.hasNext()) {
+                SelectionKey key = iter.next();
+                iter.remove();
+
+                if (key.isAcceptable()) {
+                    SocketChannel incoming = serverSocketChannel.accept();
+                    incoming.configureBlocking(false);
+                    incoming.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                }
+                else if (key.isReadable()) {
+                    SocketChannel incoming = (SocketChannel) key.channel();
+                    handleRequest(incoming);
+                }
+                else if (key.isWritable()) {
+                    // TODO?
+                }
+            }
+        }
+    }
+
+    private void handleRequest(SocketChannel incoming) throws IOException {
 
     }
 }
