@@ -17,6 +17,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Server {
+    public static void main(String[] args) {
+        Server server = new Server("localhost", 50000);
+    }
     // TO IMPLEMENT
     // Maintain topic collection
     // Listen for commands from admin

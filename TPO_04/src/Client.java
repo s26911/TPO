@@ -27,17 +27,17 @@ public class Client {
     }
 
     public void subscribe(String topicName) throws IOException {
-        socketChannel.write(ByteBuffer.wrap(("SUBSCRIBE " + topicName).getBytes()));
+        socketChannel.write(ByteBuffer.wrap(("SUBSCRIBE " + topicName + "\n").getBytes()));
     }
     public void unsubscribe(String topicName) throws IOException {
-        socketChannel.write(ByteBuffer.wrap(("UNSUBSCRIBE " + topicName).getBytes()));
+        socketChannel.write(ByteBuffer.wrap(("UNSUBSCRIBE " + topicName + "\n").getBytes()));
     }
     public String[] getSubscribed() throws IOException {
-        socketChannel.write(ByteBuffer.wrap(("LISTSUB").getBytes()));
+        socketChannel.write(ByteBuffer.wrap(("LISTSUB\n").getBytes()));
         return readLine().split(" ");
     }
     public String[] getTopics() throws IOException {
-        socketChannel.write(ByteBuffer.wrap(("LIST").getBytes()));
+        socketChannel.write(ByteBuffer.wrap(("LIST\n").getBytes()));
         return readLine().split(" ");
     }
     private String readLine() throws IOException {
