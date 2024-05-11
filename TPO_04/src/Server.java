@@ -64,7 +64,7 @@ public class Server {
                 if (key.isAcceptable()) {
                     SocketChannel incoming = serverSocketChannel.accept();
                     incoming.configureBlocking(false);
-                    incoming.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                    incoming.register(selector, SelectionKey.OP_READ);
                 } else if (key.isReadable()) {
                     SocketChannel incoming = (SocketChannel) key.channel();
                     handleRequest(incoming);
@@ -91,7 +91,7 @@ public class Server {
                 }
             }
         }
-
+        System.out.println("LINE READ: " + line);
         return line.toString();
     }
 
@@ -104,7 +104,16 @@ public class Server {
             case "ADDTOPIC" -> addDelTopic(incoming, line[1], line[0]);     // ADDTOPIC TOPIC_NAME
             case "DELTOPIC" -> addDelTopic(incoming, line[1], line[0]);     // DELTOOPIC TOPIC_NAME
             case "SEND" -> sendText(line[1], input.substring(("SEND " + line[1]).length()) );   // SEND TOPIC_NAME TEXT...
+            case "LIST" -> listTopics(incoming);
         }
+    }
+
+    private void listTopics(SocketChannel incoming) throws IOException {
+        readLock.lock();
+        String topics = topicsClients.keySet().stream().reduce("", (x,y) -> x + " " + y) + "\n";
+        readLock.unlock();
+
+        incoming.write(ByteBuffer.wrap(topics.getBytes()));
     }
 
     private void sendText(String topicName, String text) throws IOException {
