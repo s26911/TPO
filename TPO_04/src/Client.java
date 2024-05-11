@@ -32,6 +32,10 @@ public class Client {
     public void unsubscribe(String topicName) throws IOException {
         socketChannel.write(ByteBuffer.wrap(("UNSUBSCRIBE " + topicName).getBytes()));
     }
+    public String[] getSubscribed() throws IOException {
+        socketChannel.write(ByteBuffer.wrap(("LISTSUB").getBytes()));
+        return readLine().split(" ");
+    }
     public String[] getTopics() throws IOException {
         socketChannel.write(ByteBuffer.wrap(("LIST").getBytes()));
         return readLine().split(" ");
