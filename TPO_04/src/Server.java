@@ -69,6 +69,7 @@ public class Server {
                     SocketChannel incoming = serverSocketChannel.accept();
                     incoming.configureBlocking(false);
                     incoming.register(selector, SelectionKey.OP_READ);
+                    System.out.println("CONNECTED");
                 } else if (key.isReadable()) {
                     SocketChannel incoming = (SocketChannel) key.channel();
                     handleRequest(incoming);
@@ -95,7 +96,7 @@ public class Server {
                 }
             }
         }
-        System.out.println("LINE READ: " + line);
+        System.out.println("SERVER LINE READ: " + line);
         return line.toString();
     }
 
@@ -116,18 +117,21 @@ public class Server {
     private void listSubscribed(SocketChannel incoming) throws IOException {
         readLock.lock();
         String topics = topicsClients.entrySet().stream().filter(x -> x.getValue().contains(incoming))
-                .map(Map.Entry::getKey).reduce("", (x, y) -> x + " " + y) + "\n";
+                .map(Map.Entry::getKey).reduce((x, y) -> x + " " + y).orElse("");
         readLock.unlock();
 
-        incoming.write(ByteBuffer.wrap(topics.getBytes()));
+        System.out.println("LISTSUBSCRIBED: \"" + topics + "\"");
+        incoming.write(ByteBuffer.wrap((topics + "\n").getBytes()));
     }
 
     private void listTopics(SocketChannel incoming) throws IOException {
         readLock.lock();
-        String topics = topicsClients.keySet().stream().reduce("", (x,y) -> x + " " + y) + "\n";
+        String topics = topicsClients.keySet().stream()
+                .reduce((x,y) -> x + " " + y).orElse("");
         readLock.unlock();
 
-        incoming.write(ByteBuffer.wrap(topics.getBytes()));
+        System.out.println("LISTTOPICS: \"" + topics + "\"");
+        incoming.write(ByteBuffer.wrap((topics + "\n").getBytes()));
     }
 
     private void sendText(String topicName, String text) throws IOException {
@@ -136,7 +140,7 @@ public class Server {
             var list = topicsClients.get(topicName);
             for (var client : list) {
                 try {
-                    client.write(ByteBuffer.wrap(text.getBytes()));
+                    client.write(ByteBuffer.wrap((text + "\n").getBytes()));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -157,9 +161,9 @@ public class Server {
         String op = mode.equals("ADDTOPIC") ? "added" : "deleted";
         String errMess = mode.equals("ADDTOPIC") ? "already exists" : "didn't exist";
         if (prevVal != null)
-            incoming.write(ByteBuffer.wrap(String.format("Successfully %s topic %s", op, topicName).getBytes()));
+            incoming.write(ByteBuffer.wrap(String.format("Successfully %s topic %s\n", op, topicName).getBytes()));
         else
-            incoming.write(ByteBuffer.wrap(String.format("Topic %s %s and therefore wasn't %s",topicName, errMess, op).getBytes()));
+            incoming.write(ByteBuffer.wrap(String.format("Topic %s %s and therefore wasn't %s\n",topicName, errMess, op).getBytes()));
     }
 
     private void subUnsub(SocketChannel incoming, String topicName, String mode) throws IOException {
@@ -167,15 +171,14 @@ public class Server {
         var list = topicsClients.get(topicName.toLowerCase());
         if (list != null) {
             switch (mode) {
-                case "SUBSCRIBE" -> list.remove(incoming);
-                case "UNSUBSCRIBE" -> list.add(incoming);
+                case "SUBSCRIBE" -> list.add(incoming);
+                case "UNSUBSCRIBE" -> list.remove(incoming);
             }
+            incoming.write(ByteBuffer.wrap(String.format("Successfully %sd to/from %s\n", mode, topicName).getBytes()));
         }
         writeLock.unlock();
 
-        if (list == null) {
-            incoming.write(ByteBuffer.wrap("NONEXISTENT TOPIC".getBytes()));
-        } else
-            incoming.write(ByteBuffer.wrap(String.format("Successfully %sd to/from %s", mode, topicName).getBytes()));
+        if (list == null)
+            incoming.write(ByteBuffer.wrap("NONEXISTENT TOPIC\n".getBytes()));
     }
 }

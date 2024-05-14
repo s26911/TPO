@@ -20,17 +20,19 @@ public class Client {
         try {
             socketChannel = SocketChannel.open();
             socketChannel.connect(new InetSocketAddress(host, port));
-            socketChannel.configureBlocking(false);
+//            socketChannel.configureBlocking(false);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public void subscribe(String topicName) throws IOException {
+    public String subscribe(String topicName) throws IOException {
         socketChannel.write(ByteBuffer.wrap(("SUBSCRIBE " + topicName + "\n").getBytes()));
+        return readLine();
     }
-    public void unsubscribe(String topicName) throws IOException {
+    public String unsubscribe(String topicName) throws IOException {
         socketChannel.write(ByteBuffer.wrap(("UNSUBSCRIBE " + topicName + "\n").getBytes()));
+        return readLine();
     }
     public String[] getSubscribed() throws IOException {
         socketChannel.write(ByteBuffer.wrap(("LISTSUB\n").getBytes()));
@@ -57,8 +59,7 @@ public class Client {
                 }
             }
         }
-        System.out.println("LINE READ: " + line);
+        System.out.println("CLIENT LINE READ: \"" + line + "\"");
         return line.toString();
     }
-
 }

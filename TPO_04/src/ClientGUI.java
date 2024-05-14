@@ -1,5 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.IOException;
 
 public class ClientGUI extends javax.swing.JFrame {
@@ -7,6 +9,10 @@ public class ClientGUI extends javax.swing.JFrame {
     String[] subscribed;
     String[] topics;
     Client client;
+
+    public static void main(String[] args) throws IOException {
+        new ClientGUI(new Client("localhost", 50000));
+    }
 
     public ClientGUI(Client client) throws HeadlessException, IOException {
         this.client = client;
@@ -19,46 +25,59 @@ public class ClientGUI extends javax.swing.JFrame {
 //        subscribed = new String[10];
 //        topics = new String[10];
 
-        setLayout(new GridBagLayout());
-        GridBagConstraints constraints = new GridBagConstraints();
-        constraints.fill = GridBagConstraints.BOTH;
+        setLayout(new BorderLayout());
 
         JList<String> subscribedList = new JList<>(subscribed);
-        constraints.weightx = .5;
-        constraints.weighty = 0.5;
-        constraints.gridx = 0;
-        constraints.gridy = 0;
-        constraints.gridheight = 3;
-        constraints.gridwidth = 1;
-        add(subscribedList, constraints);
-
+        subscribedList.setPreferredSize(new Dimension(200, 500));
         JList<String> topicsList = new JList<>(topics);
-        constraints.gridx = 1;
-        add(topicsList, constraints);
+        topicsList.setPreferredSize(new Dimension(200, 500));
+        JPanel topicsPanel = new JPanel();
+        topicsPanel.add(subscribedList);
+        topicsPanel.add(topicsList);
 
+        JPanel buttons = new JPanel();
         JButton subscribeButton = new JButton("Subscribe");
-        constraints.weightx = 0.5;
-        constraints.weighty = 0.1;
-        constraints.gridx = 0;
-        constraints.gridy = 3;
-        constraints.gridheight = 1;
-        add(subscribeButton, constraints);
-
         JButton unsubscribeButton = new JButton("Unsubscribe");
-        constraints.gridx = 1;
-        add(unsubscribeButton, constraints);
+        JButton refresh = new JButton("Refresh");
+        buttons.add(subscribeButton);
+        buttons.add(unsubscribeButton);
+        buttons.add(refresh);
+
 
         JTextArea textArea = new JTextArea();
         textArea.setText("Hello");
-        constraints.weighty = 2;
-        constraints.weightx = 2;
-        constraints.gridx = 2;
-        constraints.gridy = 0;
-        constraints.gridwidth = 3;
-        constraints.gridheight = 4;
-        add(textArea, constraints);
-
+        textArea.setPreferredSize(new Dimension(500, 500));
+        JPanel centraPanel = new JPanel(new BorderLayout());
+        centraPanel.add(topicsPanel, BorderLayout.WEST);
+        centraPanel.add(textArea, BorderLayout.EAST);
         textArea.setBackground(Color.CYAN);
+
+        add(centraPanel, BorderLayout.CENTER);
+        add(buttons, BorderLayout.SOUTH);
+
+        subscribeButton.addActionListener(e -> {
+            try {
+                System.out.println(client.subscribe(topicsList.getSelectedValue()));
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+        unsubscribeButton.addActionListener(e -> {
+            try {
+                System.out.println(client.unsubscribe(subscribedList.getSelectedValue()));
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+        refresh.addActionListener(e -> {
+            try {
+                subscribedList.setListData(client.getSubscribed());
+                topicsList.setListData(client.getTopics());
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+
         setVisible(true);
     }
 }
