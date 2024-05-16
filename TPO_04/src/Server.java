@@ -20,6 +20,7 @@ public class Server {
     public static void main(String[] args) {
         Server server = new Server("localhost", 50000);
     }
+
     // TO IMPLEMENT
     // Maintain topic collection
     // Listen for commands from admin
@@ -106,9 +107,10 @@ public class Server {
         switch (line[0]) {
             case "SUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);       // SUBSCRIBE TOPIC_NAME
             case "UNSUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);     // UNSUBSCRIBE TOPIC_NAME
-            case "ADDTOPIC" -> addDelTopic(incoming, line[1], line[0]);     // ADDTOPIC TOPIC_NAME
-            case "DELTOPIC" -> addDelTopic(incoming, line[1], line[0]);     // DELTOOPIC TOPIC_NAME
-            case "SEND" -> sendText(line[1], input.substring(("SEND " + line[1]).length()) );   // SEND TOPIC_NAME TEXT...
+            case "ADDTOPIC" -> addTopic(incoming, line[1]);     // ADDTOPIC TOPIC_NAME
+            case "DELTOPIC" -> delTopic(incoming, line[1]);     // DELTOOPIC TOPIC_NAME
+            case "SEND" ->
+                    sendText(line[1], input.substring(("SEND " + line[1]).length()));   // SEND TOPIC_NAME TEXT...
             case "LIST" -> listTopics(incoming);
             case "LISTSUB" -> listSubscribed(incoming);
         }
@@ -127,7 +129,7 @@ public class Server {
     private void listTopics(SocketChannel incoming) throws IOException {
         readLock.lock();
         String topics = topicsClients.keySet().stream()
-                .reduce((x,y) -> x + " " + y).orElse("");
+                .reduce((x, y) -> x + " " + y).orElse("");
         readLock.unlock();
 
         System.out.println("LISTTOPICS: \"" + topics + "\"");
@@ -135,7 +137,7 @@ public class Server {
     }
 
     private void sendText(String topicName, String text) throws IOException {
-        threadPool.submit(()->{
+        threadPool.submit(() -> {
             readLock.lock();
             var list = topicsClients.get(topicName);
             for (var client : list) {
@@ -149,21 +151,26 @@ public class Server {
         });
     }
 
-    private void addDelTopic(SocketChannel incoming, String topicName, String mode) throws IOException {
+    private void addTopic(SocketChannel incoming, String topicName) throws IOException {
         writeLock.lock();
-        var prevVal = switch (mode) {
-            case "ADDTOPIC" -> topicsClients.putIfAbsent(topicName.toLowerCase(), new ArrayList<>());
-            case "DELTOPIC" -> topicsClients.remove(topicName.toLowerCase());
-            default -> null;
-        };
+        var result = topicsClients.putIfAbsent(topicName.toLowerCase(), new ArrayList<>());
         writeLock.unlock();
 
-        String op = mode.equals("ADDTOPIC") ? "added" : "deleted";
-        String errMess = mode.equals("ADDTOPIC") ? "already exists" : "didn't exist";
-        if (prevVal != null)
-            incoming.write(ByteBuffer.wrap(String.format("Successfully %s topic %s\n", op, topicName).getBytes()));
+        if (result == null)
+            incoming.write(ByteBuffer.wrap(String.format("Successfully added topic %s\n", topicName).getBytes()));
         else
-            incoming.write(ByteBuffer.wrap(String.format("Topic %s %s and therefore wasn't %s\n",topicName, errMess, op).getBytes()));
+            incoming.write(ByteBuffer.wrap(String.format("Topic %s already exists\n", topicName).getBytes()));
+    }
+
+    private void delTopic(SocketChannel incoming, String topicName) throws IOException {
+        writeLock.lock();
+        var result = topicsClients.remove(topicName.toLowerCase());
+        writeLock.unlock();
+
+        if (result != null)
+            incoming.write(ByteBuffer.wrap(String.format("Successfully deleted topic %s\n", topicName).getBytes()));
+        else
+            incoming.write(ByteBuffer.wrap(String.format("Topic %s didn't exists\n", topicName).getBytes()));
     }
 
     private void subUnsub(SocketChannel incoming, String topicName, String mode) throws IOException {
@@ -174,9 +181,9 @@ public class Server {
                 case "SUBSCRIBE" -> list.add(incoming);
                 case "UNSUBSCRIBE" -> list.remove(incoming);
             }
-            incoming.write(ByteBuffer.wrap(String.format("Successfully %sd to/from %s\n", mode, topicName).getBytes()));
         }
         writeLock.unlock();
+        incoming.write(ByteBuffer.wrap(String.format("Successfully %sd to/from %s\n", mode, topicName).getBytes()));
 
         if (list == null)
             incoming.write(ByteBuffer.wrap("NONEXISTENT TOPIC\n".getBytes()));

@@ -92,7 +92,7 @@ public class AdministratorGUI extends JFrame {
                 e -> {
                     String topic = textField.getText().strip();
                     try {
-                        admin.addTopic(topic);
+                        console.setText(console.getText() + "\n" + admin.addTopic(topic));
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
                     }
@@ -100,7 +100,7 @@ public class AdministratorGUI extends JFrame {
                 e -> {
                     String topic = topics.getSelectedValue();
                     try {
-                        admin.delTopic(topic);
+                        console.setText(console.getText() + "\n" + admin.delTopic(topic));
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
                     }
