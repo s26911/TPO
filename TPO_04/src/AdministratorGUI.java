@@ -1,9 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.util.function.Consumer;
 
 public class AdministratorGUI extends JFrame {
     Administrator admin;
@@ -92,7 +90,7 @@ public class AdministratorGUI extends JFrame {
                 e -> {
                     String topic = textField.getText().strip();
                     try {
-                        console.setText(console.getText() + "\n" + admin.addTopic(topic));
+                        admin.addTopic(topic);
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
                     }
@@ -100,7 +98,7 @@ public class AdministratorGUI extends JFrame {
                 e -> {
                     String topic = topics.getSelectedValue();
                     try {
-                        console.setText(console.getText() + "\n" + admin.delTopic(topic));
+                        admin.delTopic(topic);
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
                     }
@@ -181,8 +179,7 @@ public class AdministratorGUI extends JFrame {
         });
         refreshButton.addActionListener(e -> {
             try {
-                String[] data = admin.getTopics();
-                topics.setListData(data);
+                admin.getTopics();
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
@@ -191,6 +188,21 @@ public class AdministratorGUI extends JFrame {
 
         sendModeButton.doClick();
 //        pack();
+        new Thread(() -> {
+            while(true){
+                try {
+                    String line = admin.readLine();
+                    if (line.startsWith("LISTTOPICS")) {
+                        String[] data = line.substring("LISTTOPICS".length()).trim().split(" ");
+                        topics.setListData(data);
+                    }
+                    else
+                        console.setText(console.getText() + "\n" + line);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }).start();
         setVisible(true);
     }
 }

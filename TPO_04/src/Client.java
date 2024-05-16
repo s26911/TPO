@@ -6,13 +6,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 
 public class Client {
-    // TO IMPLEMENT:
-    // Connect
-    // Subscribe to a topic
-    // Unsubscribe from a topic
-    // Listen and print the messages
-    // Disconnect
-
     SocketChannel socketChannel;
     ByteBuffer buffer = ByteBuffer.allocate(1024);
 
@@ -26,23 +19,19 @@ public class Client {
         }
     }
 
-    public String subscribe(String topicName) throws IOException {
+    public void subscribe(String topicName) throws IOException {
         socketChannel.write(ByteBuffer.wrap(("SUBSCRIBE " + topicName + "\n").getBytes()));
-        return readLine();
     }
-    public String unsubscribe(String topicName) throws IOException {
+    public void unsubscribe(String topicName) throws IOException {
         socketChannel.write(ByteBuffer.wrap(("UNSUBSCRIBE " + topicName + "\n").getBytes()));
-        return readLine();
     }
-    public String[] getSubscribed() throws IOException {
+    public void getSubscribed() throws IOException {
         socketChannel.write(ByteBuffer.wrap(("LISTSUB\n").getBytes()));
-        return readLine().split(" ");
     }
-    public String[] getTopics() throws IOException {
+    public void getTopics() throws IOException {
         socketChannel.write(ByteBuffer.wrap(("LIST\n").getBytes()));
-        return readLine().split(" ");
     }
-    private String readLine() throws IOException {
+    protected String readLine() throws IOException {
         buffer.clear();
 
         StringBuilder line = new StringBuilder();

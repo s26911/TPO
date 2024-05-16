@@ -21,10 +21,6 @@ public class Server {
         Server server = new Server("localhost", 50000);
     }
 
-    // TO IMPLEMENT
-    // Maintain topic collection
-    // Listen for commands from admin
-    // Subscribe the clients and maintain client database
     boolean isRunning = true;
     HashMap<String, ArrayList<SocketChannel>> topicsClients = new HashMap<>();      // key = topic name
     ByteBuffer buffer = ByteBuffer.allocate(1024);                          // value = list of subscribed clients channels
@@ -123,7 +119,7 @@ public class Server {
         readLock.unlock();
 
         System.out.println("LISTSUBSCRIBED: \"" + topics + "\"");
-        incoming.write(ByteBuffer.wrap((topics + "\n").getBytes()));
+        incoming.write(ByteBuffer.wrap(("LISTSUBSCRIBED" + topics + "\n").getBytes()));
     }
 
     private void listTopics(SocketChannel incoming) throws IOException {
@@ -133,7 +129,7 @@ public class Server {
         readLock.unlock();
 
         System.out.println("LISTTOPICS: \"" + topics + "\"");
-        incoming.write(ByteBuffer.wrap((topics + "\n").getBytes()));
+        incoming.write(ByteBuffer.wrap(("LISTTOPICS " + topics + "\n").getBytes()));
     }
 
     private void sendText(String topicName, String text) throws IOException {
@@ -142,7 +138,7 @@ public class Server {
             var list = topicsClients.get(topicName);
             for (var client : list) {
                 try {
-                    client.write(ByteBuffer.wrap((text + "\n").getBytes()));
+                    client.write(ByteBuffer.wrap((topicName + ": " + text + "\n").getBytes()));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

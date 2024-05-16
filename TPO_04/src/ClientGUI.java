@@ -7,6 +7,7 @@ public class ClientGUI extends JFrame {
     String[] subscribed;
     String[] topics;
     Client client;
+    boolean reading = false;
 
     public static void main(String[] args) throws IOException {
         new ClientGUI(new Client("localhost", 50000));
@@ -21,23 +22,21 @@ public class ClientGUI extends JFrame {
         setLayout(new GridBagLayout());
         GridBagConstraints constr = new GridBagConstraints();
 
-        subscribed = client.getSubscribed();
-        topics = client.getTopics();
-//        subscribed = new String[10];
-//        topics = new String[10];
+        subscribed = new String[10];
+        topics = new String[10];
 
         JList<String> subscribedList = new JList<>(subscribed);
 //        subscribedList.setPreferredSize(new Dimension(width / 2, 350));
         JList<String> topicsList = new JList<>(topics);
 //        topicsList.setPreferredSize(new Dimension(width / 2, 350));
         JPanel topicsPanel = new JPanel();
-        topicsPanel.setPreferredSize(new Dimension(width, height/3));
+//        topicsPanel.setPreferredSize(new Dimension(width, height/3));
         topicsPanel.add(subscribedList);
         topicsPanel.add(topicsList);
 //        topicsPanel.setBackground(Color.BLUE);
 
         JPanel buttons = new JPanel();
-//        buttons.setPreferredSize(new Dimension(width, 100));
+        buttons.setPreferredSize(new Dimension(width, 100));
         JButton subscribeButton = new JButton("Subscribe");
         JButton unsubscribeButton = new JButton("Unsubscribe");
         JButton refresh = new JButton("Refresh");
@@ -49,7 +48,7 @@ public class ClientGUI extends JFrame {
 
         JTextArea textArea = new JTextArea();
         textArea.setText("Hello");
-//        textArea.setPreferredSize(new Dimension(width, 150));
+        textArea.setPreferredSize(new Dimension(width, 150));
 //        textArea.setBackground(Color.GREEN);
 
         constr.gridx = 0;
@@ -69,27 +68,48 @@ public class ClientGUI extends JFrame {
 
         subscribeButton.addActionListener(e -> {
             try {
-                System.out.println(client.subscribe(topicsList.getSelectedValue()));
+                client.subscribe(topicsList.getSelectedValue());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
         });
         unsubscribeButton.addActionListener(e -> {
             try {
-                System.out.println(client.unsubscribe(subscribedList.getSelectedValue()));
+                client.unsubscribe(subscribedList.getSelectedValue());
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
         });
         refresh.addActionListener(e -> {
             try {
-                subscribedList.setListData(client.getSubscribed());
-                topicsList.setListData(client.getTopics());
+                client.getSubscribed();
+                client.getTopics();
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
         });
 
+        refresh.doClick();
         setVisible(true);
+
+        new Thread(() -> {
+            while(true){
+                try {
+                    String line = client.readLine();
+                    if (line.startsWith("LISTTOPICS")) {
+                        String[] data = line.substring("LISTTOPICS".length()).trim().split(" ");
+                        topicsList.setListData(data);
+                    }
+                    else if (line.startsWith("LISTSUBSCRIBED")) {
+                        String[] data = line.substring("LISTSUBSCRIBED".length()).trim().split(" ");
+                        subscribedList.setListData(data);
+                    }
+                    else
+                        textArea.setText(textArea.getText() + "\n" + line);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }).start();
     }
 }

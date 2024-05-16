@@ -19,24 +19,22 @@ public class Administrator {
         }
     }
 
-    public String addTopic(String topicName) throws IOException {
+    public void addTopic(String topicName) throws IOException {
         socketChannel.write(ByteBuffer.wrap(("ADDTOPIC " + topicName + "\n").getBytes()));
-        return readLine();
+//        return readLine();
     }
-    public String delTopic(String topicName) throws IOException {
+    public void delTopic(String topicName) throws IOException {
         socketChannel.write(ByteBuffer.wrap(("DELTOPIC " + topicName + "\n").getBytes()));
-        return readLine();
     }
     public void send(String topicName, String content) throws IOException {
         content = content.replace("\t", "").replace("\n", "\t");
 
         socketChannel.write(ByteBuffer.wrap(("SEND " + topicName + " " + content + "\n").getBytes()));
     }
-    public String[] getTopics() throws IOException {
+    public void getTopics() throws IOException {
         socketChannel.write(ByteBuffer.wrap(("LIST\n").getBytes()));
-        return readLine().split(" ");
     }
-    private String readLine() throws IOException {
+    protected String readLine() throws IOException {
         buffer.clear();
 
         StringBuilder line = new StringBuilder();
