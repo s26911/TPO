@@ -27,11 +27,10 @@ public class Administrator {
         socketChannel.write(ByteBuffer.wrap(("DELTOPIC " + topicName + "\n").getBytes()));
         return readLine();
     }
-    public String send(String topicName, String content) throws IOException {
+    public void send(String topicName, String content) throws IOException {
         content = content.replace("\t", "").replace("\n", "\t");
 
         socketChannel.write(ByteBuffer.wrap(("SEND " + topicName + " " + content + "\n").getBytes()));
-        return readLine();
     }
     public String[] getTopics() throws IOException {
         socketChannel.write(ByteBuffer.wrap(("LIST\n").getBytes()));
