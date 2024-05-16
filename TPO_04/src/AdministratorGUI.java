@@ -4,12 +4,13 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 
 public class AdministratorGUI extends JFrame {
-    Administrator admin;
-    JComponent[] active = new JComponent[2];
-
     public static void main(String[] args) {
         new AdministratorGUI(new Administrator("localhost", 50000));
     }
+
+    Administrator admin;
+    JComponent[] active = new JComponent[2];
+
 
     public AdministratorGUI(Administrator admin) {
         this.admin = admin;
@@ -28,7 +29,7 @@ public class AdministratorGUI extends JFrame {
         FlowLayout layout = new FlowLayout();
         layout.setVgap(180);
         modeSelection.setLayout(layout);
-        modeSelection.setPreferredSize(new Dimension(width/6, height));
+        modeSelection.setPreferredSize(new Dimension(width / 6, height));
         modeSelection.add(sendModeButton);
         modeSelection.add(addTopicModeButton);
         modeSelection.add(delTopicModeButton);
@@ -38,14 +39,12 @@ public class AdministratorGUI extends JFrame {
         JButton refreshButton = new JButton("Refresh");
         JTextArea console = new JTextArea();
         console.setEditable(false);
-        console.setPreferredSize(new Dimension(width/6 * 5, height/8 * 2));
+        console.setPreferredSize(new Dimension(width / 6 * 5, height / 8 * 2));
         JList<String> topics = new JList<>();
-        topics.setPreferredSize(new Dimension(width/6 * 2, height/8 * 5));
+        topics.setPreferredSize(new Dimension(width / 6 * 2, height / 8 * 5));
 
-        // SEND mode
+        // Modes components
         JTextField textField = new JTextField();
-
-        // ADDTOPIC mode
         JTextField topicInputField = new JTextField();
 
         // Add components
@@ -73,8 +72,7 @@ public class AdministratorGUI extends JFrame {
         constr.gridheight = 2;
         add(console, constr);
 
-        // SEND mode (default)
-
+        // Action button (Send, Add Topic, Delete Topic) actions
         ActionListener[] actions = {
                 e -> {
                     String topic = topics.getSelectedValue();
@@ -107,16 +105,16 @@ public class AdministratorGUI extends JFrame {
 
         // Action listeners
         sendModeButton.addActionListener(e -> {
-            for (var elem : active){
+            for (var elem : active) {
                 if (elem != null)
                     remove(elem);
             }
-            for (var elem : actionButton.getActionListeners()){
+            for (var elem : actionButton.getActionListeners()) {
                 actionButton.removeActionListener(elem);
             }
             actionButton.addActionListener(actions[0]);
             actionButton.setText("Send");
-            textField.setPreferredSize(new Dimension(width/6 * 3, height/8 * 5));
+            textField.setPreferredSize(new Dimension(width / 6 * 3, height / 8 * 5));
 
             constr.gridx = 1;
             constr.gridy = 0;
@@ -133,16 +131,16 @@ public class AdministratorGUI extends JFrame {
             active[1] = textField;
         });
         addTopicModeButton.addActionListener(e -> {
-            for (var elem : active){
+            for (var elem : active) {
                 if (elem != null)
                     remove(elem);
             }
-            for (var elem : actionButton.getActionListeners()){
+            for (var elem : actionButton.getActionListeners()) {
                 actionButton.removeActionListener(elem);
             }
             actionButton.addActionListener(actions[1]);
             actionButton.setText("Add");
-            textField.setPreferredSize(new Dimension(width/6 * 3, height/8 * 5));
+            textField.setPreferredSize(new Dimension(width / 6 * 3, height / 8 * 5));
 
             constr.gridx = 1;
             constr.gridy = 0;
@@ -159,11 +157,11 @@ public class AdministratorGUI extends JFrame {
             active[1] = textField;
         });
         delTopicModeButton.addActionListener(e -> {
-            for (var elem : active){
+            for (var elem : active) {
                 if (elem != null)
                     remove(elem);
             }
-            for (var elem : actionButton.getActionListeners()){
+            for (var elem : actionButton.getActionListeners()) {
                 actionButton.removeActionListener(elem);
             }
             actionButton.addActionListener(actions[2]);
@@ -185,18 +183,18 @@ public class AdministratorGUI extends JFrame {
             }
         });
 
-
+        // Toggle sendMode by default
         sendModeButton.doClick();
-//        pack();
+
+        // Start thread for continuous reading from the channel
         new Thread(() -> {
-            while(true){
+            while (true) {
                 try {
-                    String line = admin.readLine();
+                    String line = Util.readLine(admin.socketChannel, admin.buffer);
                     if (line.startsWith("LISTTOPICS")) {
                         String[] data = line.substring("LISTTOPICS".length()).trim().split(" ");
                         topics.setListData(data);
-                    }
-                    else
+                    } else
                         console.setText(console.getText() + "\n" + line);
                 } catch (IOException e) {
                     throw new RuntimeException(e);

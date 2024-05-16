@@ -1,12 +1,10 @@
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +34,6 @@ public class Server {
     public Server(String address, int port) {
         this.address = address;
         this.port = port;
-//        topicsClients.put("info", new ArrayList<>());
 
         try {
             serverSocketChannel = ServerSocketChannel.open();
@@ -49,8 +46,6 @@ public class Server {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-
     }
 
     private void handleConnections() throws IOException {
@@ -75,36 +70,14 @@ public class Server {
         }
     }
 
-    private String readLine(SocketChannel incoming) throws IOException {
-        buffer.clear();
-
-        StringBuilder line = new StringBuilder();
-        outer:
-        while (true) {
-            if (incoming.read(buffer) > 0) {
-                buffer.flip();
-                CharBuffer cbuf = StandardCharsets.UTF_8.decode(buffer);
-
-                while (cbuf.hasRemaining()) {
-                    char c = cbuf.get();
-                    if (c == '\n')
-                        break outer;
-                    line.append(c);
-                }
-            }
-        }
-        System.out.println("SERVER LINE READ: " + line);
-        return line.toString();
-    }
-
     private void handleRequest(SocketChannel incoming) throws IOException {
-        String input = readLine(incoming);
+        String input = Util.readLine(incoming, buffer);
         String[] line = input.split(" ");
         switch (line[0]) {
             case "SUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);       // SUBSCRIBE TOPIC_NAME
             case "UNSUBSCRIBE" -> subUnsub(incoming, line[1], line[0]);     // UNSUBSCRIBE TOPIC_NAME
-            case "ADDTOPIC" -> addTopic(incoming, line[1]);     // ADDTOPIC TOPIC_NAME
-            case "DELTOPIC" -> delTopic(incoming, line[1]);     // DELTOOPIC TOPIC_NAME
+            case "ADDTOPIC" -> addTopic(incoming, line[1]);                 // ADDTOPIC TOPIC_NAME
+            case "DELTOPIC" -> delTopic(incoming, line[1]);                 // DELTOOPIC TOPIC_NAME
             case "SEND" ->
                     sendText(line[1], input.substring(("SEND " + line[1]).length()));   // SEND TOPIC_NAME TEXT...
             case "LIST" -> listTopics(incoming);
@@ -112,39 +85,20 @@ public class Server {
         }
     }
 
-    private void listSubscribed(SocketChannel incoming) throws IOException {
-        readLock.lock();
-        String topics = topicsClients.entrySet().stream().filter(x -> x.getValue().contains(incoming))
-                .map(Map.Entry::getKey).reduce((x, y) -> x + " " + y).orElse("");
-        readLock.unlock();
-
-        System.out.println("LISTSUBSCRIBED: \"" + topics + "\"");
-        incoming.write(ByteBuffer.wrap(("LISTSUBSCRIBED" + topics + "\n").getBytes()));
-    }
-
-    private void listTopics(SocketChannel incoming) throws IOException {
-        readLock.lock();
-        String topics = topicsClients.keySet().stream()
-                .reduce((x, y) -> x + " " + y).orElse("");
-        readLock.unlock();
-
-        System.out.println("LISTTOPICS: \"" + topics + "\"");
-        incoming.write(ByteBuffer.wrap(("LISTTOPICS " + topics + "\n").getBytes()));
-    }
-
-    private void sendText(String topicName, String text) throws IOException {
-        threadPool.submit(() -> {
-            readLock.lock();
-            var list = topicsClients.get(topicName);
-            for (var client : list) {
-                try {
-                    client.write(ByteBuffer.wrap((topicName + ": " + text + "\n").getBytes()));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+    private void subUnsub(SocketChannel incoming, String topicName, String mode) throws IOException {
+        writeLock.lock();
+        var list = topicsClients.get(topicName.toLowerCase());
+        if (list != null) {
+            switch (mode) {
+                case "SUBSCRIBE" -> list.add(incoming);
+                case "UNSUBSCRIBE" -> list.remove(incoming);
             }
-            readLock.unlock();
-        });
+        }
+        writeLock.unlock();
+        incoming.write(ByteBuffer.wrap(String.format("Successfully %sd to/from %s\n", mode, topicName).getBytes()));
+
+        if (list == null)
+            incoming.write(ByteBuffer.wrap("NONEXISTENT TOPIC\n".getBytes()));
     }
 
     private void addTopic(SocketChannel incoming, String topicName) throws IOException {
@@ -169,19 +123,36 @@ public class Server {
             incoming.write(ByteBuffer.wrap(String.format("Topic %s didn't exists\n", topicName).getBytes()));
     }
 
-    private void subUnsub(SocketChannel incoming, String topicName, String mode) throws IOException {
-        writeLock.lock();
-        var list = topicsClients.get(topicName.toLowerCase());
-        if (list != null) {
-            switch (mode) {
-                case "SUBSCRIBE" -> list.add(incoming);
-                case "UNSUBSCRIBE" -> list.remove(incoming);
+    private void sendText(String topicName, String text) throws IOException {
+        threadPool.submit(() -> {
+            readLock.lock();
+            var list = topicsClients.get(topicName);
+            for (var client : list) {
+                try {
+                    client.write(ByteBuffer.wrap((topicName + ": " + text + "\n").getBytes()));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
-        }
-        writeLock.unlock();
-        incoming.write(ByteBuffer.wrap(String.format("Successfully %sd to/from %s\n", mode, topicName).getBytes()));
+            readLock.unlock();
+        });
+    }
 
-        if (list == null)
-            incoming.write(ByteBuffer.wrap("NONEXISTENT TOPIC\n".getBytes()));
+    private void listTopics(SocketChannel incoming) throws IOException {
+        readLock.lock();
+        String topics = topicsClients.keySet().stream()
+                .reduce((x, y) -> x + " " + y).orElse("");
+        readLock.unlock();
+
+        incoming.write(ByteBuffer.wrap(("LISTTOPICS " + topics + "\n").getBytes()));
+    }
+
+    private void listSubscribed(SocketChannel incoming) throws IOException {
+        readLock.lock();
+        String topics = topicsClients.entrySet().stream().filter(x -> x.getValue().contains(incoming))
+                .map(Map.Entry::getKey).reduce((x, y) -> x + " " + y).orElse("");
+        readLock.unlock();
+
+        incoming.write(ByteBuffer.wrap(("LISTSUBSCRIBED" + topics + "\n").getBytes()));
     }
 }

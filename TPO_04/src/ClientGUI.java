@@ -3,15 +3,13 @@ import java.awt.*;
 import java.io.IOException;
 
 public class ClientGUI extends JFrame {
-
-    String[] subscribed;
-    String[] topics;
-    Client client;
-    boolean reading = false;
-
     public static void main(String[] args) throws IOException {
         new ClientGUI(new Client("localhost", 50000));
     }
+
+    String[] subscribed = new String[10];
+    String[] topics = new String[10];
+    Client client;
 
     public ClientGUI(Client client) throws HeadlessException, IOException {
         this.client = client;
@@ -22,9 +20,7 @@ public class ClientGUI extends JFrame {
         setLayout(new GridBagLayout());
         GridBagConstraints constr = new GridBagConstraints();
 
-        subscribed = new String[10];
-        topics = new String[10];
-
+        // Upper menu -> lists
         JList<String> subscribedList = new JList<>(subscribed);
 //        subscribedList.setPreferredSize(new Dimension(width / 2, 350));
         JList<String> topicsList = new JList<>(topics);
@@ -33,8 +29,8 @@ public class ClientGUI extends JFrame {
 //        topicsPanel.setPreferredSize(new Dimension(width, height/3));
         topicsPanel.add(subscribedList);
         topicsPanel.add(topicsList);
-//        topicsPanel.setBackground(Color.BLUE);
 
+        // Central menu -> buttons
         JPanel buttons = new JPanel();
         buttons.setPreferredSize(new Dimension(width, 100));
         JButton subscribeButton = new JButton("Subscribe");
@@ -43,14 +39,12 @@ public class ClientGUI extends JFrame {
         buttons.add(subscribeButton);
         buttons.add(unsubscribeButton);
         buttons.add(refresh);
-//        buttons.setBackground(Color.RED);
 
-
+        // Lower menu -> console
         JTextArea textArea = new JTextArea();
-        textArea.setText("Hello");
         textArea.setPreferredSize(new Dimension(width, 150));
-//        textArea.setBackground(Color.GREEN);
 
+        // Add components
         constr.gridx = 0;
         constr.gridy = 0;
         constr.weighty = 0.6;
@@ -66,6 +60,7 @@ public class ClientGUI extends JFrame {
         constr.weighty = 0.3;
         add(textArea, constr);
 
+        // Action listeners
         subscribeButton.addActionListener(e -> {
             try {
                 client.subscribe(topicsList.getSelectedValue());
@@ -88,28 +83,26 @@ public class ClientGUI extends JFrame {
                 throw new RuntimeException(ex);
             }
         });
-
         refresh.doClick();
-        setVisible(true);
 
+        // Start thread for continuous reading from the channel
         new Thread(() -> {
-            while(true){
+            while (true) {
                 try {
-                    String line = client.readLine();
+                    String line = Util.readLine(client.socketChannel, client.buffer);
                     if (line.startsWith("LISTTOPICS")) {
                         String[] data = line.substring("LISTTOPICS".length()).trim().split(" ");
                         topicsList.setListData(data);
-                    }
-                    else if (line.startsWith("LISTSUBSCRIBED")) {
+                    } else if (line.startsWith("LISTSUBSCRIBED")) {
                         String[] data = line.substring("LISTSUBSCRIBED".length()).trim().split(" ");
                         subscribedList.setListData(data);
-                    }
-                    else
+                    } else
                         textArea.setText(textArea.getText() + "\n" + line);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
         }).start();
+        setVisible(true);
     }
 }
